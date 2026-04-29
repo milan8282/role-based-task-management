@@ -1,0 +1,40 @@
+import { z } from "zod";
+
+export const createCategorySchema = z.object({
+  body: z.object({
+    name: z
+      .string()
+      .trim()
+      .min(2, "Category name must be at least 2 characters")
+      .max(50, "Category name cannot exceed 50 characters"),
+
+    description: z
+      .string()
+      .trim()
+      .max(200, "Description cannot exceed 200 characters")
+      .optional(),
+  }),
+});
+
+export const updateCategorySchema = z.object({
+  body: z.object({
+    name: z
+      .string()
+      .trim()
+      .min(2, "Category name must be at least 2 characters")
+      .max(50, "Category name cannot exceed 50 characters")
+      .optional(),
+
+    description: z
+      .string()
+      .trim()
+      .max(200, "Description cannot exceed 200 characters")
+      .optional(),
+
+    isActive: z.boolean().optional(),
+  }),
+
+  params: z.object({
+    id: z.string().min(1, "Category id is required"),
+  }),
+});
