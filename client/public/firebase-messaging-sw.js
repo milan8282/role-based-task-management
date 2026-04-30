@@ -13,7 +13,7 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  const title = payload?.notification?.title || "New notification";
+  const title = payload?.notification?.title || "New notification"; 
   const body = payload?.notification?.body || "";
 
   self.registration.showNotification(title, {
