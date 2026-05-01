@@ -7,8 +7,25 @@ export const taskApi = {
   update: (id, data) => api.patch(`/tasks/${id}`, data),
   remove: (id) => api.delete(`/tasks/${id}`),
 
+  exportCsv: (params = {}) =>
+    api.get("/tasks/export", {
+      params,
+      responseType: "blob",
+    }),
+
+  importCsv: (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    return api.post("/tasks/import", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+  },
+
   getComments: (taskId) => api.get(`/tasks/${taskId}/comments`),
   addComment: (taskId, data) => api.post(`/tasks/${taskId}/comments`, data),
   updateComment: (id, data) => api.patch(`/comments/${id}`, data),
-  deleteComment: (id) => api.delete(`/comments/${id}`)
+  deleteComment: (id) => api.delete(`/comments/${id}`),
 };

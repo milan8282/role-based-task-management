@@ -1,0 +1,4 @@
+title,description,dueDate,priority,status,category,assignedUsers
+Homepage UI Polish,Improve dashboard spacing and responsiveness,2026-05-10T10:00:00.000Z,high,todo,Development,user1@example.com;user2@example.com
+API Pagination,Add backend pagination for task listing,2026-05-12T11:30:00.000Z,medium,in_progress,Backend,user1@example.com
+QA Testing,Test CSV import and export module,2026-05-15T09:00:00.000Z,low,todo,Testing,

@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { ShieldCheck, UserRound } from "lucide-react";
 import toast from "react-hot-toast";
 import { userApi } from "../api/userApi";
-import { SelectDropdown } from "../components/ui/Dropdown";
+import { SelectDropdown } from "../components/ui/DropDown";
+
+
 
 
 export default function Users() {

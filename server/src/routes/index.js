@@ -7,6 +7,7 @@ import taskRoutes from "./task.routes.js";
 import commentRoutes from "./comment.routes.js";
 import notificationRoutes from "./notification.routes.js";
 import deviceTokenRoutes from "./deviceToken.routes.js";
+import savedFilterRoutes from "./savedFilter.routes.js";
 
 const router = express.Router();
 
@@ -24,5 +25,6 @@ router.use("/tasks", taskRoutes);
 router.use("/", commentRoutes);
 router.use("/notifications", notificationRoutes);
 router.use("/device-tokens", deviceTokenRoutes);
+router.use("/saved-filters", savedFilterRoutes);
 
 export default router;

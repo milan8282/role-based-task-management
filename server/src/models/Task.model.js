@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { TASK_STATUS } from "../constants/taskStatus.js";
+import { TASK_PRIORITY } from "../constants/taskPriority.js";
 
 const taskSchema = new mongoose.Schema(
   {
@@ -9,6 +10,7 @@ const taskSchema = new mongoose.Schema(
       trim: true,
       minlength: [2, "Task title must be at least 2 characters"],
       maxlength: [100, "Task title cannot exceed 100 characters"],
+      index: true,
     },
 
     description: {
@@ -30,6 +32,13 @@ const taskSchema = new mongoose.Schema(
       type: String,
       enum: Object.values(TASK_STATUS),
       default: TASK_STATUS.TODO,
+      index: true,
+    },
+
+    priority: {
+      type: String,
+      enum: Object.values(TASK_PRIORITY),
+      default: TASK_PRIORITY.MEDIUM,
       index: true,
     },
 
@@ -70,6 +79,7 @@ const taskSchema = new mongoose.Schema(
 
 taskSchema.index({ createdBy: 1, status: 1 });
 taskSchema.index({ assignedTo: 1, status: 1 });
+taskSchema.index({ priority: 1, dueDate: 1 });
 
 const Task = mongoose.model("Task", taskSchema);
 

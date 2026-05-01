@@ -5,59 +5,110 @@ import {
     PointerSensor,
     closestCorners,
     useSensor,
-    useSensors
+    useSensors,
 } from "@dnd-kit/core";
-import { Search, SlidersHorizontal, Plus } from "lucide-react";
+import {
+    Download,
+    Search,
+    SlidersHorizontal,
+    Plus,
+    Upload,
+    LayoutGrid,
+    List,
+} from "lucide-react";
 import toast from "react-hot-toast";
 
 import { taskApi } from "../../api/taskApi";
 import { categoryApi } from "../../api/categoryApi";
 import { userApi } from "../../api/userApi";
 import { useSocket } from "../../context/SocketContext";
+import { downloadBlob } from "../../utils/downloadFile";
 import TaskCard from "./TaskCard";
 import TaskColumn from "./TaskColumn";
 import TaskModal from "./TaskModal";
 import CommentDrawer from "./CommentDrawer";
-import { SelectDropdown } from "../ui/Dropdown";
+import TaskImportModal from "./TaskImportModal";
+import TaskAdvancedFilters from "./TaskAdvancedFilters";
+import Pagination from "./Pagination";
+
+import TaskListView from "./TaskListView";
+import { SelectDropdown } from "../ui/DropDown";
 
 const columns = [
     { key: "todo", label: "Backlog", accent: "bg-[#62666d]" },
     { key: "in_progress", label: "In Progress", accent: "bg-[#5e6ad2]" },
-    { key: "completed", label: "Completed", accent: "bg-[#10b981]" }
+    { key: "completed", label: "Completed", accent: "bg-[#10b981]" },
 ];
+
+const defaultFilters = {
+    status: "",
+    priority: "",
+    category: "",
+    assignee: "",
+    dueFrom: "",
+    dueTo: "",
+    search: "",
+    sortBy: "createdAt",
+    sortOrder: "desc",
+    page: 1,
+    limit: 10,
+};
 
 export default function TaskBoard() {
     const { socket } = useSocket();
 
+    const [viewMode, setViewMode] = useState(() => {
+        return localStorage.getItem("taskViewMode") || "kanban";
+    });
+
     const [tasks, setTasks] = useState([]);
+    const [meta, setMeta] = useState({
+        total: 0,
+        page: 1,
+        limit: 10,
+        totalPages: 1,
+    });
+
     const [categories, setCategories] = useState([]);
     const [users, setUsers] = useState([]);
 
-    const [status, setStatus] = useState("");
-    const [category, setCategory] = useState("");
-    const [search, setSearch] = useState("");
+    const [filters, setFilters] = useState(defaultFilters);
 
     const [modalOpen, setModalOpen] = useState(false);
+    const [importOpen, setImportOpen] = useState(false);
+    const [advancedOpen, setAdvancedOpen] = useState(false);
     const [editingTask, setEditingTask] = useState(null);
     const [activeTask, setActiveTask] = useState(null);
     const [commentTask, setCommentTask] = useState(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
-            activationConstraint: { distance: 8 }
+            activationConstraint: { distance: 8 },
         })
     );
 
+    const getApiParams = () => ({
+        status: filters.status || undefined,
+        priority: filters.priority || undefined,
+        category: filters.category || undefined,
+        assignee: filters.assignee || undefined,
+        dueFrom: filters.dueFrom || undefined,
+        dueTo: filters.dueTo || undefined,
+        search: filters.search || undefined,
+        sortBy: filters.sortBy || undefined,
+        sortOrder: filters.sortOrder || undefined,
+        page: filters.page,
+        limit: filters.limit,
+    });
+
     const load = async () => {
         const [taskRes, catRes] = await Promise.all([
-            taskApi.getAll({
-                status: status || undefined,
-                category: category || undefined
-            }),
-            categoryApi.getAll()
+            taskApi.getAll(getApiParams()),
+            categoryApi.getAll(),
         ]);
 
         setTasks(taskRes.data.data.tasks);
+        setMeta(taskRes.data.data.meta);
         setCategories(catRes.data.data.categories);
 
         try {
@@ -70,7 +121,19 @@ export default function TaskBoard() {
 
     useEffect(() => {
         load();
-    }, [status, category]);
+    }, [
+        filters.status,
+        filters.priority,
+        filters.category,
+        filters.assignee,
+        filters.dueFrom,
+        filters.dueTo,
+        filters.search,
+        filters.sortBy,
+        filters.sortOrder,
+        filters.page,
+        filters.limit,
+    ]);
 
     useEffect(() => {
         if (!socket) return;
@@ -94,27 +157,12 @@ export default function TaskBoard() {
         };
     }, [socket]);
 
-    const filteredTasks = useMemo(() => {
-        const q = search.trim().toLowerCase();
-
-        return tasks.filter((task) => {
-            if (!q) return true;
-
-            return (
-                task.title?.toLowerCase().includes(q) ||
-                task.description?.toLowerCase().includes(q) ||
-                task.category?.name?.toLowerCase().includes(q) ||
-                task.assignedTo?.some((user) => user.name?.toLowerCase().includes(q))
-            );
-        });
-    }, [tasks, search]);
-
     const grouped = useMemo(() => {
         return columns.reduce((acc, col) => {
-            acc[col.key] = filteredTasks.filter((task) => task.status === col.key);
+            acc[col.key] = tasks.filter((task) => task.status === col.key);
             return acc;
         }, {});
-    }, [filteredTasks]);
+    }, [tasks]);
 
     const findTaskById = (id) => tasks.find((task) => task._id === id);
 
@@ -202,6 +250,29 @@ export default function TaskBoard() {
         }
     };
 
+    const exportCsv = async () => {
+        try {
+            const res = await taskApi.exportCsv(getApiParams());
+            downloadBlob(res.data, "tasks.csv");
+            toast.success("CSV exported");
+        } catch (error) {
+            toast.error(error?.response?.data?.message || "Unable to export CSV");
+        }
+    };
+
+    const updateFilter = (key, value) => {
+        setFilters((prev) => ({
+            ...prev,
+            [key]: value,
+            page: 1,
+        }));
+    };
+
+    const changeViewMode = (mode) => {
+        setViewMode(mode);
+        localStorage.setItem("taskViewMode", mode);
+    };
+
     return (
         <div>
             <div className="mb-7 flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
@@ -215,103 +286,183 @@ export default function TaskBoard() {
                     </h1>
 
                     <p className="mt-2 text-sm text-[#8a8f98]">
-                        Drag cards across columns, assign users, comment and receive live updates.
+                        Drag cards across columns, assign users, comment, filter, import and export tasks.
                     </p>
                 </div>
 
-                <button
-                    onClick={() => setModalOpen(true)}
-                    className="btn-primary inline-flex items-center justify-center gap-2"
-                >
-                    <Plus size={17} />
-                    Create Task
-                </button>
+                <div className="flex flex-col gap-3 sm:flex-row">
+
+                    <div className="flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+                        <button
+                            type="button"
+                            onClick={() => changeViewMode("kanban")}
+                            className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${viewMode === "kanban"
+                                ? "bg-[#5e6ad2] text-white shadow-sm"
+                                : "text-slate-600 hover:bg-slate-50"
+                                }`}
+                        >
+                            <LayoutGrid size={16} />
+                            Kanban
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => changeViewMode("list")}
+                            className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${viewMode === "list"
+                                ? "bg-[#5e6ad2] text-white shadow-sm"
+                                : "text-slate-600 hover:bg-slate-50"
+                                }`}
+                        >
+                            <List size={16} />
+                            List
+                        </button>
+                    </div>
+
+                    <button
+                        onClick={exportCsv}
+                        className="btn-ghost inline-flex items-center justify-center gap-2"
+                    >
+                        <Download size={17} />
+                        Export CSV
+                    </button>
+
+                    <button
+                        onClick={() => setImportOpen(true)}
+                        className="btn-ghost inline-flex items-center justify-center gap-2"
+                    >
+                        <Upload size={17} />
+                        Import CSV
+                    </button>
+
+                    <button
+                        onClick={() => setModalOpen(true)}
+                        className="btn-primary inline-flex items-center justify-center gap-2"
+                    >
+                        <Plus size={17} />
+                        Create Task
+                    </button>
+                </div>
             </div>
 
-            <div className="glass-card mb-5 flex flex-col gap-3 rounded-2xl p-3 lg:flex-row lg:items-center">
+            <div className="glass-card mb-5 flex flex-col gap-3 rounded-2xl p-3 xl:flex-row xl:items-center">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-3.5 text-[#62666d]" size={17} />
 
                     <input
                         className="input-dark !pl-10"
-                        placeholder="Search tasks, categories, descriptions, assignees..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search tasks by title or description..."
+                        value={filters.search}
+                        onChange={(e) => updateFilter("search", e.target.value)}
                     />
                 </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row">
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                     <SelectDropdown
-                        value={status}
+                        value={filters.status}
                         placeholder="All status"
-                        onChange={setStatus}
+                        onChange={(value) => updateFilter("status", value)}
                         options={[
                             { label: "All status", value: "" },
                             { label: "Backlog", value: "todo" },
                             { label: "In Progress", value: "in_progress" },
-                            { label: "Completed", value: "completed" }
+                            { label: "Completed", value: "completed" },
                         ]}
                     />
 
                     <SelectDropdown
-                        value={category}
-                        placeholder="All categories"
-                        onChange={setCategory}
-                        className="min-w-[220px]"
+                        value={filters.priority}
+                        placeholder="All priority"
+                        onChange={(value) => updateFilter("priority", value)}
                         options={[
-                            { label: "All categories", value: "" },
-                            ...categories.map((cat) => ({
-                                label: cat.name,
-                                value: cat._id
-                            }))
+                            { label: "All priority", value: "" },
+                            { label: "Low", value: "low" },
+                            { label: "Medium", value: "medium" },
+                            { label: "High", value: "high" },
                         ]}
                     />
 
-                    <button className="btn-ghost inline-flex items-center justify-center gap-2">
+                    <SelectDropdown
+                        value={filters.limit}
+                        placeholder="Page size"
+                        onChange={(value) => updateFilter("limit", Number(value))}
+                        options={[
+                            { label: "10 / page", value: 10 },
+                            { label: "20 / page", value: 20 },
+                            { label: "50 / page", value: 50 },
+                        ]}
+                    />
+
+                    <button
+                        onClick={() => setAdvancedOpen(true)}
+                        className="btn-ghost inline-flex items-center justify-center gap-2"
+                    >
                         <SlidersHorizontal size={16} />
                         Filters
                     </button>
                 </div>
             </div>
 
-            <DndContext
-                sensors={sensors}
-                collisionDetection={closestCorners}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-            >
-                <div className="grid gap-4 xl:grid-cols-3">
-                    {columns.map((col) => (
-                        <TaskColumn
-                            key={col.key}
-                            column={col}
-                            tasks={grouped[col.key] || []}
-                            onEdit={(item) => {
-                                setEditingTask(item);
-                                setModalOpen(true);
-                            }}
-                            onDelete={onDelete}
-                            onStatusChange={onStatusChange}
-                            onOpenComments={setCommentTask}
-                        />
-                    ))}
-                </div>
-
-                <DragOverlay>
-                    {activeTask ? (
-                        <div className="rotate-2 opacity-95">
-                            <TaskCard
-                                task={activeTask}
-                                onEdit={() => { }}
-                                onDelete={() => { }}
-                                onStatusChange={() => { }}
-                                onOpenComments={() => { }}
-                                isOverlay
+            {viewMode === "kanban" ? (
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCorners}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                >
+                    <div className="grid gap-4 xl:grid-cols-3">
+                        {columns.map((col) => (
+                            <TaskColumn
+                                key={col.key}
+                                column={col}
+                                tasks={grouped[col.key] || []}
+                                onEdit={(item) => {
+                                    setEditingTask(item);
+                                    setModalOpen(true);
+                                }}
+                                onDelete={onDelete}
+                                onStatusChange={onStatusChange}
+                                onOpenComments={setCommentTask}
                             />
-                        </div>
-                    ) : null}
-                </DragOverlay>
-            </DndContext>
+                        ))}
+                    </div>
+
+                    <DragOverlay>
+                        {activeTask ? (
+                            <div className="rotate-2 opacity-95">
+                                <TaskCard
+                                    task={activeTask}
+                                    onEdit={() => { }}
+                                    onDelete={() => { }}
+                                    onStatusChange={() => { }}
+                                    onOpenComments={() => { }}
+                                    isOverlay
+                                />
+                            </div>
+                        ) : null}
+                    </DragOverlay>
+                </DndContext>
+            ) : (
+                <TaskListView
+                    tasks={tasks}
+                    onEdit={(item) => {
+                        setEditingTask(item);
+                        setModalOpen(true);
+                    }}
+                    onDelete={onDelete}
+                    onStatusChange={onStatusChange}
+                    onOpenComments={setCommentTask}
+                />
+            )}
+
+            <Pagination
+                meta={meta}
+                onPageChange={(page) =>
+                    setFilters((prev) => ({
+                        ...prev,
+                        page,
+                    }))
+                }
+            />
 
             <TaskModal
                 open={modalOpen}
@@ -323,6 +474,22 @@ export default function TaskBoard() {
                     setEditingTask(null);
                 }}
                 onSave={onSave}
+            />
+
+            <TaskImportModal
+                open={importOpen}
+                onClose={() => setImportOpen(false)}
+                onImported={load}
+            />
+
+            <TaskAdvancedFilters
+                open={advancedOpen}
+                onClose={() => setAdvancedOpen(false)}
+                filters={filters}
+                setFilters={setFilters}
+                categories={categories}
+                users={users}
+                onApply={load}
             />
 
             <CommentDrawer

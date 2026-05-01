@@ -176,6 +176,7 @@ export const createTaskService = async ({ data, currentUser }) => {
     category: data.category,
     assignedTo,
     dueDate: data.dueDate ? new Date(data.dueDate) : null,
+    priority: data.priority || "medium",
     createdBy: currentUser._id,
   });
 
@@ -207,18 +208,77 @@ export const getTasksService = async ({ currentUser, filters = {} }) => {
     query.status = filters.status;
   }
 
+  if (filters.priority) {
+    query.priority = filters.priority;
+  }
+
   if (filters.category) {
     checkObjectId(filters.category, "category");
     query.category = filters.category;
   }
 
-  const tasks = await Task.find(query)
-    .populate("category", "name description")
-    .populate("createdBy", "name email role")
-    .populate("assignedTo", "name email role")
-    .sort({ createdAt: -1 });
+  if (filters.assignee) {
+    checkObjectId(filters.assignee, "assignee");
+    query.assignedTo = filters.assignee;
+  }
 
-  return tasks;
+  if (filters.dueFrom || filters.dueTo) {
+    query.dueDate = {};
+
+    if (filters.dueFrom) {
+      query.dueDate.$gte = new Date(filters.dueFrom);
+    }
+
+    if (filters.dueTo) {
+      query.dueDate.$lte = new Date(filters.dueTo);
+    }
+  }
+
+  if (filters.search) {
+    const searchRegex = new RegExp(filters.search, "i");
+
+    query.$and = [
+      ...(query.$and || []),
+      {
+        $or: [
+          { title: searchRegex },
+          { description: searchRegex },
+        ],
+      },
+    ];
+  }
+
+  const page = Math.max(Number(filters.page) || 1, 1);
+  const limit = Math.min(Math.max(Number(filters.limit) || 10, 1), 50);
+  const skip = (page - 1) * limit;
+
+  const allowedSortFields = ["createdAt", "dueDate", "priority", "status", "title"];
+  const sortBy = allowedSortFields.includes(filters.sortBy)
+    ? filters.sortBy
+    : "createdAt";
+
+  const sortOrder = filters.sortOrder === "asc" ? 1 : -1;
+
+  const [tasks, total] = await Promise.all([
+    Task.find(query)
+      .populate("category", "name description")
+      .populate("createdBy", "name email role")
+      .populate("assignedTo", "name email role")
+      .sort({ [sortBy]: sortOrder, createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    Task.countDocuments(query),
+  ]);
+
+  return {
+    tasks,
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    },
+  };
 };
 
 export const getTaskByIdService = async ({ taskId, currentUser }) => {
@@ -271,6 +331,7 @@ export const updateTaskService = async ({ taskId, data, currentUser }) => {
 
   if (data.title !== undefined) task.title = data.title;
   if (data.description !== undefined) task.description = data.description;
+  if (data.priority !== undefined) task.priority = data.priority;
 
   if (data.status !== undefined) {
     task.status = data.status;
@@ -372,6 +433,7 @@ export const getTasksGroupedByCategoryService = async ({ currentUser }) => {
             title: "$title",
             description: "$description",
             status: "$status",
+            priority: "$priority",
             dueDate: "$dueDate",
             createdBy: "$createdBy",
             assignedTo: "$assignedTo",

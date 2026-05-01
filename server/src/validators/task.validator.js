@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TASK_STATUS_VALUES } from "../constants/taskStatus.js";
+import { TASK_PRIORITY_VALUES } from "../constants/taskPriority.js";
 
 const objectIdMessage = "Invalid id";
 
@@ -26,6 +27,8 @@ export const createTaskSchema = z.object({
     assignedTo: z.array(objectIdSchema).optional().default([]),
 
     dueDate: z.string().datetime().optional().nullable(),
+
+    priority: z.enum(TASK_PRIORITY_VALUES).optional().default("medium"),
   }),
 });
 
@@ -48,6 +51,8 @@ export const updateTaskSchema = z.object({
     category: objectIdSchema.optional(),
 
     status: z.enum(TASK_STATUS_VALUES).optional(),
+
+    priority: z.enum(TASK_PRIORITY_VALUES).optional(),
 
     assignedTo: z.array(objectIdSchema).optional(),
 
