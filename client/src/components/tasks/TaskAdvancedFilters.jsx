@@ -157,7 +157,7 @@ export default function TaskAdvancedFilters({
                 <SelectDropdown
                   value={filters.category}
                   onChange={(value) => updateFilter("category", value)}
-                  className="min-w-[220px]"
+                  className="min-w-[170px]"
                   options={[
                     { label: "All categories", value: "" },
                     ...categories.map((cat) => ({
@@ -173,7 +173,7 @@ export default function TaskAdvancedFilters({
                 <SelectDropdown
                   value={filters.assignee}
                   onChange={(value) => updateFilter("assignee", value)}
-                  className="min-w-[220px]"
+                  className="min-w-[170px]"
                   options={[
                     { label: "All assignees", value: "" },
                     ...users.map((user) => ({

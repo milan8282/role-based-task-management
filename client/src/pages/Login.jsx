@@ -72,7 +72,7 @@ export default function Login() {
                   <div className="relative">
                     <Mail className="absolute left-3 top-3.5 text-[#62666d]" size={17} />
                     <input
-                      className="input-dark pl-10"
+                      className="input-dark !pl-10"
                       value={form.email}
                       onChange={(e) => setForm({ ...form, email: e.target.value })}
                       placeholder="you@example.com"
@@ -85,7 +85,7 @@ export default function Login() {
                   <div className="relative">
                     <Lock className="absolute left-3 top-3.5 text-[#62666d]" size={17} />
                     <input
-                      className="input-dark pl-10"
+                      className="input-dark !pl-10"
                       type="password"
                       value={form.password}
                       onChange={(e) => setForm({ ...form, password: e.target.value })}
